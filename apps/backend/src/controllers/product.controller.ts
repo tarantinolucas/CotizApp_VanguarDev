@@ -6,11 +6,7 @@ import {
   listProducts,
   updateProduct
 } from "../models/product.model.js";
-
-function parseId(value: unknown) {
-  const n = typeof value === "string" ? Number(value) : typeof value === "number" ? value : NaN;
-  return Number.isFinite(n) ? n : null;
-}
+import { getCompanyIdForWrite, getScopedCompanyId, parseNumericId } from "../utils/request-scope.js";
 
 function parsePrice(value: unknown) {
   const n =
@@ -40,7 +36,7 @@ function toNonEmptyString(value: unknown) {
 }
 
 export async function listProductsHandler(_req: Request, res: Response) {
-  const items = await listProducts();
+  const items = await listProducts(getScopedCompanyId(_req));
   res.json({
     ok: true,
     items: items.map((p) => ({
@@ -51,13 +47,13 @@ export async function listProductsHandler(_req: Request, res: Response) {
 }
 
 export async function getProductHandler(req: Request, res: Response) {
-  const id = parseId(req.params.id);
+  const id = parseNumericId(req.params.id);
   if (!id) {
     res.status(400).json({ ok: false, error: "invalid_id" });
     return;
   }
 
-  const item = await getProductById(id);
+  const item = await getProductById(id, getScopedCompanyId(req));
   if (!item) {
     res.status(404).json({ ok: false, error: "not_found" });
     return;
@@ -67,10 +63,20 @@ export async function getProductHandler(req: Request, res: Response) {
 }
 
 export async function createProductHandler(req: Request, res: Response) {
+  const companyId = getCompanyIdForWrite(req);
+  if (!companyId) {
+    res.status(400).json({ ok: false, error: "empresa_requerida" });
+    return;
+  }
+
   const nombre = toNonEmptyString(req.body?.nombre);
   const precioArs = parsePrice(req.body?.precio_ars);
   const precioUsd = parsePrice(req.body?.precio_usd);
   const stock = parseStock(req.body?.stock);
+  const sku = toNonEmptyString(req.body?.sku);
+  const descripcion = toNonEmptyString(req.body?.descripcion);
+  const estado = toNonEmptyString(req.body?.estado) ?? "Activo";
+  const garantia = toNonEmptyString(req.body?.garantia);
 
   if (!nombre) {
     res.status(400).json({ ok: false, error: "nombre_required" });
@@ -87,20 +93,29 @@ export async function createProductHandler(req: Request, res: Response) {
     return;
   }
 
-  const item = await createProduct({
+  const item = await createProduct(companyId, {
     nombre,
     precio_ars: String(precioArs),
     precio_usd: String(precioUsd),
-    stock
+    stock,
+    sku,
+    descripcion,
+    estado,
+    garantia
   });
 
   res.status(201).json({ ok: true, item: { ...item, id: Number(item.id) } });
 }
 
 export async function updateProductHandler(req: Request, res: Response) {
-  const id = parseId(req.params.id);
+  const id = parseNumericId(req.params.id);
+  const companyId = getCompanyIdForWrite(req);
   if (!id) {
     res.status(400).json({ ok: false, error: "invalid_id" });
+    return;
+  }
+  if (!companyId) {
+    res.status(400).json({ ok: false, error: "empresa_requerida" });
     return;
   }
 
@@ -108,6 +123,10 @@ export async function updateProductHandler(req: Request, res: Response) {
   const precioArs = parsePrice(req.body?.precio_ars);
   const precioUsd = parsePrice(req.body?.precio_usd);
   const stock = parseStock(req.body?.stock);
+  const sku = toNonEmptyString(req.body?.sku);
+  const descripcion = toNonEmptyString(req.body?.descripcion);
+  const estado = toNonEmptyString(req.body?.estado) ?? "Activo";
+  const garantia = toNonEmptyString(req.body?.garantia);
 
   if (!nombre) {
     res.status(400).json({ ok: false, error: "nombre_required" });
@@ -128,8 +147,12 @@ export async function updateProductHandler(req: Request, res: Response) {
     nombre,
     precio_ars: String(precioArs),
     precio_usd: String(precioUsd),
-    stock
-  });
+    stock,
+    sku,
+    descripcion,
+    estado,
+    garantia
+  }, companyId);
 
   if (!item) {
     res.status(404).json({ ok: false, error: "not_found" });
@@ -140,13 +163,13 @@ export async function updateProductHandler(req: Request, res: Response) {
 }
 
 export async function deleteProductHandler(req: Request, res: Response) {
-  const id = parseId(req.params.id);
+  const id = parseNumericId(req.params.id);
   if (!id) {
     res.status(400).json({ ok: false, error: "invalid_id" });
     return;
   }
 
-  const deleted = await deleteProduct(id);
+  const deleted = await deleteProduct(id, getScopedCompanyId(req));
   if (!deleted) {
     res.status(404).json({ ok: false, error: "not_found" });
     return;

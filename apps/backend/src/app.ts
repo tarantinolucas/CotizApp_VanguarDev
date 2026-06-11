@@ -5,9 +5,11 @@ import { authMiddleware } from "./middlewares/auth.middleware.js";
 import { roleMiddleware } from "./middlewares/role.middleware.js";
 import { authRouter } from "./routes/auth.routes.js";
 import { clientRouter } from "./routes/client.routes.js";
+import { companyRouter } from "./routes/company.routes.js";
 import { productRouter } from "./routes/product.routes.js";
 import { quoteRouter } from "./routes/quote.routes.js";
 import { configRouter } from "./routes/config.routes.js";
+import { userRouter } from "./routes/user.routes.js";
 
 export const app = express();
 
@@ -62,24 +64,36 @@ app.use("/api/auth", authRouter);
 app.use(
   "/api/clients",
   authMiddleware,
-  roleMiddleware(["Admin", "Vendedor", "Gerente"]),
+  roleMiddleware(["Admin", "Vendedor"]),
   clientRouter
 );
 app.use(
   "/api/products",
   authMiddleware,
-  roleMiddleware(["Admin", "Vendedor", "Gerente"]),
+  roleMiddleware(["Admin", "Vendedor"]),
   productRouter
 );
 app.use(
   "/api/quotes",
   authMiddleware,
-  roleMiddleware(["Admin", "Vendedor", "Gerente"]),
+  roleMiddleware(["Admin", "Vendedor"]),
   quoteRouter
 );
 app.use(
   "/api/config",
   authMiddleware,
-  roleMiddleware(["Admin", "Gerente"]),
+  roleMiddleware(["Admin", "Vendedor"]),
   configRouter
+);
+app.use(
+  "/api/users",
+  authMiddleware,
+  roleMiddleware(["SuperAdmin", "Admin"]),
+  userRouter
+);
+app.use(
+  "/api/companies",
+  authMiddleware,
+  roleMiddleware(["SuperAdmin"]),
+  companyRouter
 );

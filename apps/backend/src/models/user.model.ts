@@ -2,16 +2,213 @@ import { pool } from "../config/database.js";
 
 export type DbUser = {
   id: string | number;
+  id_empresa: string | number | null;
+  empresa_nombre: string | null;
+  empresa_activa: boolean | null;
   nombre: string;
   email: string;
   password_hash: string;
   rol: string;
+  activo: boolean;
 };
 
 export async function getUserByEmail(email: string) {
   const result = await pool.query<DbUser>(
-    `select id, nombre, email, password_hash, rol from usuarios where email = $1 limit 1`,
+    `
+      select
+        u.id,
+        u.id_empresa,
+        e.nombre as empresa_nombre,
+        e.activo as empresa_activa,
+        u.nombre,
+        u.email,
+        u.password_hash,
+        u.rol,
+        u.activo
+      from usuarios u
+      left join empresas e on e.id = u.id_empresa
+      where lower(u.email) = lower($1)
+      limit 1
+    `,
     [email]
   );
   return result.rows[0] ?? null;
+}
+
+export type UserRow = Omit<DbUser, "password_hash" | "empresa_activa">;
+
+export async function listUsers(input?: { companyId?: number | null; includeInactive?: boolean }) {
+  const values: unknown[] = [];
+  const where: string[] = [];
+
+  if (input?.companyId !== undefined && input.companyId !== null) {
+    values.push(input.companyId);
+    where.push(`u.id_empresa = $${values.length}`);
+  }
+
+  if (!input?.includeInactive) {
+    where.push("u.activo = true");
+  }
+
+  const whereSql = where.length ? `where ${where.join(" and ")}` : "";
+
+  const result = await pool.query<UserRow>(
+    `
+      select
+        u.id,
+        u.id_empresa,
+        e.nombre as empresa_nombre,
+        u.nombre,
+        u.email,
+        u.rol,
+        u.activo
+      from usuarios u
+      left join empresas e on e.id = u.id_empresa
+      ${whereSql}
+      order by u.id desc
+    `,
+    values
+  );
+  return result.rows;
+}
+
+export async function getUserById(id: number, companyId?: number | null) {
+  const values: unknown[] = [id];
+  let companySql = "";
+  if (companyId !== undefined && companyId !== null) {
+    values.push(companyId);
+    companySql = `and u.id_empresa = $${values.length}`;
+  }
+
+  const result = await pool.query<UserRow>(
+    `
+      select
+        u.id,
+        u.id_empresa,
+        e.nombre as empresa_nombre,
+        u.nombre,
+        u.email,
+        u.rol,
+        u.activo
+      from usuarios u
+      left join empresas e on e.id = u.id_empresa
+      where u.id = $1
+      ${companySql}
+      limit 1
+    `,
+    values
+  );
+  return result.rows[0] ?? null;
+}
+
+export async function createUser(input: {
+  empresaId: number | null;
+  nombre: string;
+  email: string;
+  passwordHash: string;
+  rol: string;
+  activo?: boolean;
+}) {
+  const result = await pool.query<UserRow>(
+    `
+      insert into usuarios (id_empresa, nombre, email, password_hash, rol, activo)
+      values ($1, $2, lower($3), $4, $5, $6)
+      returning
+        id,
+        id_empresa,
+        (select e.nombre from empresas e where e.id = usuarios.id_empresa) as empresa_nombre,
+        nombre,
+        email,
+        rol,
+        activo
+    `,
+    [input.empresaId, input.nombre, input.email, input.passwordHash, input.rol, input.activo ?? true]
+  );
+  return result.rows[0];
+}
+
+export async function updateUser(
+  id: number,
+  input: {
+    empresaId?: number | null;
+    nombre?: string;
+    email?: string;
+    passwordHash?: string;
+    rol?: string;
+    activo?: boolean;
+  },
+  companyId?: number | null
+) {
+  const updates: string[] = [];
+  const values: unknown[] = [];
+  let idx = 1;
+
+  if (input.empresaId !== undefined) {
+    updates.push(`id_empresa = $${idx++}`);
+    values.push(input.empresaId);
+  }
+  if (input.nombre !== undefined) {
+    updates.push(`nombre = $${idx++}`);
+    values.push(input.nombre);
+  }
+  if (input.email !== undefined) {
+    updates.push(`email = lower($${idx++})`);
+    values.push(input.email);
+  }
+  if (input.passwordHash !== undefined) {
+    updates.push(`password_hash = $${idx++}`);
+    values.push(input.passwordHash);
+  }
+  if (input.rol !== undefined) {
+    updates.push(`rol = $${idx++}`);
+    values.push(input.rol);
+  }
+  if (input.activo !== undefined) {
+    updates.push(`activo = $${idx++}`);
+    values.push(input.activo);
+  }
+
+  if (updates.length === 0) {
+    return getUserById(id, companyId);
+  }
+
+  values.push(id);
+  let whereSql = `where id = $${idx++}`;
+  if (companyId !== undefined && companyId !== null) {
+    values.push(companyId);
+    whereSql += ` and id_empresa = $${idx++}`;
+  }
+
+  const result = await pool.query<UserRow>(
+    `
+      update usuarios
+      set ${updates.join(", ")}
+      ${whereSql}
+      returning
+        id,
+        id_empresa,
+        (select e.nombre from empresas e where e.id = usuarios.id_empresa) as empresa_nombre,
+        nombre,
+        email,
+        rol,
+        activo
+    `,
+    values
+  );
+  return result.rows[0] ?? null;
+}
+
+export async function deactivateUser(id: number, companyId?: number | null) {
+  const values: unknown[] = [id];
+  let whereSql = "where id = $1";
+  if (companyId !== undefined && companyId !== null) {
+    values.push(companyId);
+    whereSql += ` and id_empresa = $${values.length}`;
+  }
+
+  const result = await pool.query<{ id: string | number }>(
+    `update usuarios set activo = false ${whereSql} returning id`,
+    values
+  );
+  return (result.rows[0]?.id ?? null) !== null;
 }

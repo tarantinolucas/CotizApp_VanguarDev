@@ -17,11 +17,7 @@ import {
   parseMoneyToCents,
   parsePercentToBasisPoints
 } from "../services/quote.service.js";
-
-function parseId(value: unknown) {
-  const n = typeof value === "string" ? Number(value) : typeof value === "number" ? value : NaN;
-  return Number.isFinite(n) ? n : null;
-}
+import { getCompanyIdForWrite, getScopedCompanyId, parseNumericId } from "../utils/request-scope.js";
 
 function parseQty(value: unknown) {
   const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
@@ -61,6 +57,7 @@ export async function listQuotesHandler(req: Request, res: Response) {
   const to = typeof req.query?.to === "string" ? parseIsoDateOrNull(req.query.to) : null;
 
   const items = await listQuotes({
+    companyId: getScopedCompanyId(req),
     q: q || undefined,
     estado: estado || undefined,
     from: from || undefined,
@@ -75,7 +72,13 @@ export async function createQuoteHandler(req: Request, res: Response) {
     return;
   }
 
-  const idCliente = parseId(req.body?.id_cliente);
+  const companyId = getCompanyIdForWrite(req);
+  if (!companyId) {
+    res.status(400).json({ ok: false, error: "empresa_requerida" });
+    return;
+  }
+
+  const idCliente = parseNumericId(req.body?.id_cliente);
   const moneda = req.body?.moneda === "ARS" || req.body?.moneda === "USD" ? req.body.moneda : null;
   const descuentoCents = parseMoneyToCents(req.body?.descuento_global ?? "0") ?? 0n;
   const ivaBp =
@@ -97,7 +100,7 @@ export async function createQuoteHandler(req: Request, res: Response) {
   const items = Array.isArray(req.body?.items) ? (req.body.items as unknown[]) : [];
   const parsedItems = items
     .map((it) => {
-      const idProducto = parseId((it as any)?.id_producto);
+      const idProducto = parseNumericId((it as any)?.id_producto);
       const cantidad = parseQty((it as any)?.cantidad);
       const descuentoBp =
         parsePercentToBasisPoints((it as any)?.descuento_porcentaje ?? (it as any)?.descuento ?? "0") ?? 0n;
@@ -110,7 +113,7 @@ export async function createQuoteHandler(req: Request, res: Response) {
     return;
   }
 
-  const client = await getClientById(idCliente);
+  const client = await getClientById(idCliente, companyId);
   if (!client) {
     res.status(400).json({ ok: false, error: "cliente_invalido" });
     return;
@@ -130,7 +133,7 @@ export async function createQuoteHandler(req: Request, res: Response) {
   }
 
   for (const it of parsedItems) {
-    const product = await getProductById(it.idProducto);
+    const product = await getProductById(it.idProducto, companyId);
     if (!product) {
       res.status(400).json({ ok: false, error: "producto_invalido" });
       return;
@@ -163,6 +166,7 @@ export async function createQuoteHandler(req: Request, res: Response) {
   });
 
   const quoteId = await createQuoteTransactional({
+    idEmpresa: companyId,
     idCliente,
     idUsuario: req.user.id,
     fechaEmisionIso,
@@ -208,19 +212,20 @@ export async function createQuoteHandler(req: Request, res: Response) {
 }
 
 export async function getQuotePdfHandler(req: Request, res: Response) {
-  const id = parseId(req.params.id);
+  const id = parseNumericId(req.params.id);
   if (!id) {
     res.status(400).json({ ok: false, error: "invalid_id" });
     return;
   }
 
-  const quote = await getQuoteById(id);
+  const companyId = getScopedCompanyId(req);
+  const quote = await getQuoteById(id, companyId);
   if (!quote) {
     res.status(404).json({ ok: false, error: "not_found" });
     return;
   }
 
-  const items = await listQuoteItems(id);
+  const items = await listQuoteItems(id, companyId);
   const pdf = await generateQuotePdfBuffer(id);
 
   res.setHeader("Content-Type", "application/pdf");
@@ -232,26 +237,27 @@ export async function getQuotePdfHandler(req: Request, res: Response) {
 }
 
 export async function getQuoteHandler(req: Request, res: Response) {
-  const id = parseId(req.params.id);
+  const id = parseNumericId(req.params.id);
   if (!id) {
     res.status(400).json({ ok: false, error: "invalid_id" });
     return;
   }
 
-  const quote = await getQuoteById(id);
+  const companyId = getScopedCompanyId(req);
+  const quote = await getQuoteById(id, companyId);
   if (!quote) {
     res.status(404).json({ ok: false, error: "not_found" });
     return;
   }
 
-  const items = await listQuoteItems(id);
-  const client = await getClientById(Number(quote.id_cliente));
+  const items = await listQuoteItems(id, companyId);
+  const client = await getClientById(Number(quote.id_cliente), companyId);
 
   res.json({ ok: true, quote, items, client });
 }
 
 export async function updateQuoteHandler(req: Request, res: Response) {
-  const id = parseId(req.params.id);
+  const id = parseNumericId(req.params.id);
   if (!id) {
     res.status(400).json({ ok: false, error: "invalid_id" });
     return;
@@ -270,7 +276,7 @@ export async function updateQuoteHandler(req: Request, res: Response) {
     data.proxima_alerta = req.body.proxima_alerta ? parseIsoDateOrNull(req.body.proxima_alerta) : null;
   }
 
-  const success = await updateQuote(id, data);
+  const success = await updateQuote(id, data, getScopedCompanyId(req));
   if (!success) {
     res.status(404).json({ ok: false, error: "not_found_or_no_changes" });
     return;

@@ -12,6 +12,7 @@ import {
   SettingsIcon
 } from "../common/Icons";
 import { useAuth } from "../../context/AuthContext";
+import type { UserRole } from "../../types";
 
 type NavItem = {
   key: string;
@@ -20,19 +21,24 @@ type NavItem = {
   icon: (props: { size?: number; color?: string }) => ReactNode;
 };
 
-export function SideNav(props: { onLogout: () => void; userLabel: string }) {
+export function SideNav(props: { onLogout: () => void; userLabel: string; userMeta?: string | null }) {
   const [expanded, setExpanded] = useState(false);
+  const { user } = useAuth();
+  const role: UserRole | null = user?.rol ?? null;
 
-  const itemsTop: NavItem[] = [
-    { key: "home", label: "Inicio", to: "/", icon: HomeIcon },
-    { key: "quotes", label: "Cotizaciones", to: "/quotes", icon: QuotesIcon },
-    { key: "clients", label: "Clientes", to: "/clients", icon: ClientsIcon },
-    { key: "products", label: "Productos", to: "/products", icon: ProductsIcon },
-    { key: "metrics", label: "Métricas", icon: MetricsIcon }
-  ];
+  const itemsTop: NavItem[] =
+    role === "SuperAdmin"
+      ? []
+      : [
+          { key: "home", label: "Inicio", to: "/", icon: HomeIcon },
+          { key: "quotes", label: "Cotizaciones", to: "/quotes", icon: QuotesIcon },
+          { key: "clients", label: "Clientes", to: "/clients", icon: ClientsIcon },
+          { key: "products", label: "Productos", to: "/products", icon: ProductsIcon },
+          { key: "metrics", label: "Métricas", icon: MetricsIcon }
+        ];
 
   const itemsBottom: NavItem[] = [
-    { key: "settings", label: "Configuración", to: "/settings", icon: SettingsIcon },
+    { key: "settings", label: role === "SuperAdmin" ? "Administración" : "Configuración", to: "/settings", icon: SettingsIcon },
     { key: "support", label: "Soporte", icon: HelpIcon }
   ];
 
@@ -124,6 +130,7 @@ export function SideNav(props: { onLogout: () => void; userLabel: string }) {
           {expanded ? (
             <div className="userInfo">
               <div className="userName">{props.userLabel}</div>
+              {props.userMeta ? <div className="userRole">{props.userMeta}</div> : null}
             </div>
           ) : null}
 
@@ -143,11 +150,14 @@ export function SideNav(props: { onLogout: () => void; userLabel: string }) {
 export function MainLayout(props: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const userLabel = user ? `${user.nombre}` : "Usuario";
+  const userMeta = user
+    ? [user.rol, user.empresaNombre].filter((value): value is string => Boolean(value)).join(" · ")
+    : null;
 
   return (
     <div className="layoutRoot">
       <div className="layoutRow">
-        <SideNav onLogout={logout} userLabel={userLabel} />
+        <SideNav onLogout={logout} userLabel={userLabel} userMeta={userMeta} />
         <main className="layoutMain">
           <div className="layoutMainCard">{props.children}</div>
         </main>

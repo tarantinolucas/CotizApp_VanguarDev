@@ -43,6 +43,7 @@ export type QuoteListRow = {
 };
 
 export async function listQuotes(input?: {
+  companyId?: number | null;
   q?: string;
   estado?: string;
   from?: string;
@@ -50,6 +51,11 @@ export async function listQuotes(input?: {
 }) {
   const where: string[] = [];
   const values: unknown[] = [];
+
+  if (input?.companyId !== undefined && input.companyId !== null) {
+    values.push(input.companyId);
+    where.push(`c.id_empresa = $${values.length}`);
+  }
 
   if (input?.estado) {
     values.push(input.estado);
@@ -102,26 +108,42 @@ export async function listQuotes(input?: {
   return result.rows;
 }
 
-export async function getQuoteById(id: number) {
+export async function getQuoteById(id: number, companyId?: number | null) {
+  const values: unknown[] = [id];
+  let companySql = "";
+  if (companyId !== undefined && companyId !== null) {
+    values.push(companyId);
+    companySql = `and id_empresa = $${values.length}`;
+  }
   const result = await pool.query<QuoteRow>(
     `
       select id, id_cliente, id_usuario, fecha_emision, fecha_vencimiento, moneda, tipo_cambio, subtotal, iva_porcentaje,
              descuento_global, total_final, estado, notas, plazo_entrega, forma_pago, lugar_entrega, mantenimiento_oferta, proxima_alerta
       from cotizaciones
       where id = $1
+      ${companySql}
       limit 1
     `,
-    [id]
+    values
   );
   return result.rows[0] ?? null;
 }
 
-export async function listQuoteItems(quoteId: number) {
+export async function listQuoteItems(quoteId: number, companyId?: number | null) {
+  const values: unknown[] = [quoteId];
+  const companyJoin =
+    companyId !== undefined && companyId !== null
+      ? (() => {
+          values.push(companyId);
+          return `join cotizaciones c on c.id = i.id_cotizacion and c.id_empresa = $${values.length}`;
+        })()
+      : "join cotizaciones c on c.id = i.id_cotizacion";
   const result = await pool.query<QuoteItemRow>(
     `
       select i.id, i.id_cotizacion, i.id_producto, i.cantidad, i.precio_unitario_momento, i.descuento_porcentaje,
              p.nombre as producto_nombre
       from items_cotizacion i
+      ${companyJoin}
       join productos p on p.id = i.id_producto
       where i.id_cotizacion = $1
       order by i.id asc
@@ -132,6 +154,7 @@ export async function listQuoteItems(quoteId: number) {
 }
 
 export type CreateQuoteInput = {
+  idEmpresa: number;
   idCliente: number;
   idUsuario: number;
   fechaEmisionIso: string;
@@ -165,13 +188,14 @@ export async function createQuoteTransactional(input: CreateQuoteInput) {
     const quoteResult = await client.query<{ id: string | number }>(
       `
         insert into cotizaciones
-          (id_cliente, id_usuario, fecha_emision, fecha_vencimiento, moneda, tipo_cambio, subtotal, iva_porcentaje, descuento_global, total_final, estado,
+          (id_empresa, id_cliente, id_usuario, fecha_emision, fecha_vencimiento, moneda, tipo_cambio, subtotal, iva_porcentaje, descuento_global, total_final, estado,
            notas, plazo_entrega, forma_pago, lugar_entrega, mantenimiento_oferta, proxima_alerta)
         values
-          ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+          ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
         returning id
       `,
       [
+        input.idEmpresa,
         input.idCliente,
         input.idUsuario,
         input.fechaEmisionIso,
@@ -221,7 +245,11 @@ export async function createQuoteTransactional(input: CreateQuoteInput) {
   }
 }
 
-export async function updateQuote(id: number, data: { estado?: string; proxima_alerta?: string | null }) {
+export async function updateQuote(
+  id: number,
+  data: { estado?: string; proxima_alerta?: string | null },
+  companyId?: number | null
+) {
   const updates: string[] = [];
   const values: unknown[] = [];
   let idx = 1;
@@ -239,10 +267,12 @@ export async function updateQuote(id: number, data: { estado?: string; proxima_a
   if (updates.length === 0) return true;
 
   values.push(id);
-  const result = await pool.query(
-    `update cotizaciones set ${updates.join(", ")} where id = $${idx}`,
-    values
-  );
+  let whereSql = `where id = $${idx++}`;
+  if (companyId !== undefined && companyId !== null) {
+    values.push(companyId);
+    whereSql += ` and id_empresa = $${idx++}`;
+  }
+  const result = await pool.query(`update cotizaciones set ${updates.join(", ")} ${whereSql}`, values);
 
   return result.rowCount ? result.rowCount > 0 : false;
 }

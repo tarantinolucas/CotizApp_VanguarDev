@@ -9,7 +9,7 @@ import QuotesPage from "./pages/Quotes";
 import SettingsPage from "./pages/Settings";
 
 export default function App() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
 
   if (!token) {
     return (
@@ -17,6 +17,18 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
+    );
+  }
+
+  if (user?.rol === "SuperAdmin") {
+    return (
+      <MainLayout>
+        <Routes>
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/" element={<Navigate to="/settings" replace />} />
+          <Route path="*" element={<Navigate to="/settings" replace />} />
+        </Routes>
+      </MainLayout>
     );
   }
 

@@ -1,4 +1,4 @@
-export type UserRole = "Admin" | "Vendedor" | "Gerente";
+export type UserRole = "SuperAdmin" | "Admin" | "Vendedor";
 
 export type CurrencyCode = "ARS" | "USD";
 

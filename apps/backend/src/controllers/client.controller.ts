@@ -6,11 +6,7 @@ import {
   listClients,
   updateClient
 } from "../models/client.model.js";
-
-function parseId(value: unknown) {
-  const n = typeof value === "string" ? Number(value) : typeof value === "number" ? value : NaN;
-  return Number.isFinite(n) ? n : null;
-}
+import { getCompanyIdForWrite, getScopedCompanyId, parseNumericId } from "../utils/request-scope.js";
 
 function toNullableString(value: unknown) {
   if (value === undefined || value === null) {
@@ -23,8 +19,8 @@ function toNullableString(value: unknown) {
   return trimmed.length ? trimmed : null;
 }
 
-export async function listClientsHandler(_req: Request, res: Response) {
-  const items = await listClients();
+export async function listClientsHandler(req: Request, res: Response) {
+  const items = await listClients(getScopedCompanyId(req));
   res.json({
     ok: true,
     items: items.map((c) => ({
@@ -35,13 +31,13 @@ export async function listClientsHandler(_req: Request, res: Response) {
 }
 
 export async function getClientHandler(req: Request, res: Response) {
-  const id = parseId(req.params.id);
+  const id = parseNumericId(req.params.id);
   if (!id) {
     res.status(400).json({ ok: false, error: "invalid_id" });
     return;
   }
 
-  const item = await getClientById(id);
+  const item = await getClientById(id, getScopedCompanyId(req));
   if (!item) {
     res.status(404).json({ ok: false, error: "not_found" });
     return;
@@ -51,6 +47,12 @@ export async function getClientHandler(req: Request, res: Response) {
 }
 
 export async function createClientHandler(req: Request, res: Response) {
+  const companyId = getCompanyIdForWrite(req);
+  if (!companyId) {
+    res.status(400).json({ ok: false, error: "empresa_requerida" });
+    return;
+  }
+
   const nombre_empresa = toNullableString(req.body?.nombre_empresa);
   if (!nombre_empresa) {
     res.status(400).json({ ok: false, error: "nombre_empresa_required" });
@@ -60,21 +62,42 @@ export async function createClientHandler(req: Request, res: Response) {
   const contacto_principal = toNullableString(req.body?.contacto_principal);
   const cuit_tax_id = toNullableString(req.body?.cuit_tax_id);
   const clasificacion = toNullableString(req.body?.clasificacion);
+  const email = toNullableString(req.body?.email);
+  const telefono = toNullableString(req.body?.telefono);
+  const direccion = toNullableString(req.body?.direccion);
+  const codigo_postal = toNullableString(req.body?.codigo_postal);
+  const pais = toNullableString(req.body?.pais);
+  const provincia = toNullableString(req.body?.provincia);
+  const estado = toNullableString(req.body?.estado) ?? "Activo";
+  const ult_contacto = toNullableString(req.body?.ult_contacto);
 
-  const item = await createClient({
+  const item = await createClient(companyId, {
     nombre_empresa,
     contacto_principal,
     cuit_tax_id,
-    clasificacion
+    clasificacion,
+    email,
+    telefono,
+    direccion,
+    codigo_postal,
+    pais,
+    provincia,
+    estado,
+    ult_contacto
   });
 
   res.status(201).json({ ok: true, item: { ...item, id: Number(item.id) } });
 }
 
 export async function updateClientHandler(req: Request, res: Response) {
-  const id = parseId(req.params.id);
+  const id = parseNumericId(req.params.id);
+  const companyId = getCompanyIdForWrite(req);
   if (!id) {
     res.status(400).json({ ok: false, error: "invalid_id" });
+    return;
+  }
+  if (!companyId) {
+    res.status(400).json({ ok: false, error: "empresa_requerida" });
     return;
   }
 
@@ -87,13 +110,29 @@ export async function updateClientHandler(req: Request, res: Response) {
   const contacto_principal = toNullableString(req.body?.contacto_principal);
   const cuit_tax_id = toNullableString(req.body?.cuit_tax_id);
   const clasificacion = toNullableString(req.body?.clasificacion);
+  const email = toNullableString(req.body?.email);
+  const telefono = toNullableString(req.body?.telefono);
+  const direccion = toNullableString(req.body?.direccion);
+  const codigo_postal = toNullableString(req.body?.codigo_postal);
+  const pais = toNullableString(req.body?.pais);
+  const provincia = toNullableString(req.body?.provincia);
+  const estado = toNullableString(req.body?.estado) ?? "Activo";
+  const ult_contacto = toNullableString(req.body?.ult_contacto);
 
   const item = await updateClient(id, {
     nombre_empresa,
     contacto_principal,
     cuit_tax_id,
-    clasificacion
-  });
+    clasificacion,
+    email,
+    telefono,
+    direccion,
+    codigo_postal,
+    pais,
+    provincia,
+    estado,
+    ult_contacto
+  }, companyId);
 
   if (!item) {
     res.status(404).json({ ok: false, error: "not_found" });
@@ -104,13 +143,13 @@ export async function updateClientHandler(req: Request, res: Response) {
 }
 
 export async function deleteClientHandler(req: Request, res: Response) {
-  const id = parseId(req.params.id);
+  const id = parseNumericId(req.params.id);
   if (!id) {
     res.status(400).json({ ok: false, error: "invalid_id" });
     return;
   }
 
-  const deleted = await deleteClient(id);
+  const deleted = await deleteClient(id, getScopedCompanyId(req));
   if (!deleted) {
     res.status(404).json({ ok: false, error: "not_found" });
     return;

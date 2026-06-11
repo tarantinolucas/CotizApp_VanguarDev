@@ -1,12 +1,32 @@
-export type UserRole = "Admin" | "Vendedor" | "Gerente";
+export type UserRole = "SuperAdmin" | "Admin" | "Vendedor";
 
 export type CurrencyCode = "ARS" | "USD";
 
 export interface User {
   id: number;
+  empresaId: number | null;
+  empresaNombre: string | null;
   nombre: string;
   email: string;
   rol: UserRole;
+}
+
+export interface Company {
+  id: number;
+  nombre: string;
+  activo: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ManagedUser {
+  id: number;
+  id_empresa: number | null;
+  empresa_nombre: string | null;
+  nombre: string;
+  email: string;
+  rol: UserRole;
+  activo: boolean;
 }
 
 export interface Client {

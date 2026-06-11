@@ -5,6 +5,7 @@ import { authConfig } from "../config/auth.js";
 import { getUserByEmail } from "../models/user.model.js";
 import type { AuthUser } from "../types/auth.js";
 import type { UserRole } from "../types/index.js";
+import { isRole } from "../utils/access.js";
 
 const scryptAsync = promisify(crypto.scrypt);
 
@@ -21,10 +22,6 @@ function nowMs() {
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
-}
-
-function isRole(value: string): value is UserRole {
-  return value === "Admin" || value === "Vendedor" || value === "Gerente";
 }
 
 async function verifyPassword(password: string, passwordHash: string) {
@@ -107,6 +104,10 @@ export async function loginWithPassword(input: {
     return { ok: false, reason: "invalid_credentials" };
   }
 
+  if (!dbUser.activo || dbUser.empresa_activa === false) {
+    return { ok: false, reason: "invalid_credentials" };
+  }
+
   const role = isRole(dbUser.rol) ? dbUser.rol : "Vendedor";
 
   const passwordOk = await verifyPassword(input.password, dbUser.password_hash);
@@ -122,17 +123,21 @@ export async function loginWithPassword(input: {
 
   const user: AuthUser = {
     id: Number(dbUser.id),
+    empresaId: dbUser.id_empresa === null ? null : Number(dbUser.id_empresa),
+    empresaNombre: dbUser.empresa_nombre,
     nombre: dbUser.nombre,
     email: dbUser.email,
     rol: role
   };
-  if (!Number.isFinite(user.id)) {
+  if (!Number.isFinite(user.id) || (user.empresaId !== null && !Number.isFinite(user.empresaId))) {
     return { ok: false, reason: "invalid_credentials" };
   }
 
   const token = jwt.sign(
     {
       sub: String(user.id),
+      empresaId: user.empresaId,
+      empresaNombre: user.empresaNombre,
       email: user.email,
       nombre: user.nombre,
       rol: user.rol
@@ -148,6 +153,8 @@ export async function loginWithPassword(input: {
 
 export type JwtAuthPayload = {
   sub: string;
+  empresaId?: number | null;
+  empresaNombre?: string | null;
   email: string;
   nombre: string;
   rol: UserRole;
@@ -177,12 +184,17 @@ export function verifyAccessToken(token: string) {
 
   const user: AuthUser = {
     id: Number(payload.sub),
+    empresaId:
+      payload.empresaId === null || payload.empresaId === undefined
+        ? null
+        : Number(payload.empresaId),
+    empresaNombre: typeof payload.empresaNombre === "string" ? payload.empresaNombre : null,
     email: payload.email,
     nombre: payload.nombre,
     rol: payload.rol
   };
 
-  if (!Number.isFinite(user.id)) {
+  if (!Number.isFinite(user.id) || (user.empresaId !== null && !Number.isFinite(user.empresaId))) {
     return null;
   }
 
