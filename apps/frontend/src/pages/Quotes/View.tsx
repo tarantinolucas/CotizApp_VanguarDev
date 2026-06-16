@@ -351,18 +351,18 @@ export default function QuotesView() {
           {/* Tabs Section for Notes and History */}
           <div style={{ marginTop: 5 }}>
             <div className="quotesTabs" style={{ marginBottom: 24 }}>
-              <Button
-                className={activeTab === "notas" ? "btn--primary" : "btn--ghost"}
+              <button
+                className={`pageTabPill ${activeTab === "notas" ? "pageTabPill--active" : ""}`}
                 onClick={() => setActiveTab("notas")}
               >
                 Notas ({notes.length})
-              </Button>
-              <Button
-                className={activeTab === "historial" ? "btn--primary" : "btn--ghost"}
+              </button>
+              <button
+                className={`pageTabPill ${activeTab === "historial" ? "pageTabPill--active" : ""}`}
                 onClick={() => setActiveTab("historial")}
               >
                 Historial ({tracking.length})
-              </Button>
+              </button>
             </div>
 
             {activeTab === "notas" && (

@@ -21,6 +21,10 @@ export function ProductsList() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
   const [activeTab, setActiveTab] = useState("Todos");
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [estadoFilter, setEstadoFilter] = useState("");
+  const [precioMin, setPrecioMin] = useState("");
+  const [precioMax, setPrecioMax] = useState("");
   const [statusModalProduct, setStatusModalProduct] = useState<Product | null>(null);
   const [newStatus, setNewStatus] = useState("Activo");
   const navigate = useNavigate();
@@ -84,8 +88,23 @@ export function ProductsList() {
         );
       });
     }
+
+    if (estadoFilter) {
+      result = result.filter((p) => normalizeProductStatus(p.estado) === normalizeProductStatus(estadoFilter));
+    }
+    
+    const min = parseFloat(precioMin);
+    if (!isNaN(min)) {
+      result = result.filter((p) => Number(p.precio) >= min);
+    }
+    
+    const max = parseFloat(precioMax);
+    if (!isNaN(max)) {
+      result = result.filter((p) => Number(p.precio) <= max);
+    }
+
     return result;
-  }, [filter, items, activeTab]);
+  }, [filter, items, activeTab, estadoFilter, precioMin, precioMax]);
 
   async function handleUpdateStatus() {
     if (!statusModalProduct) return;
@@ -130,17 +149,37 @@ export function ProductsList() {
           <button className={`pageTabPill ${activeTab === "Desactivados" ? "pageTabPill--active" : ""}`} onClick={() => setActiveTab("Desactivados")}>Desactivados</button>
         </div>
 
-        <div className="filterToolbar">
+        <div className="filterToolbar" style={{ marginBottom: showAdvancedFilters ? 16 : 24 }}>
           <input
             className="searchBarInput"
             placeholder="Buscar..."
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />
-          <Button className="btn--ghost" style={{ display: "flex", gap: 8 }}>
-            <FilterIcon /> Filtrar
+          <Button onClick={() => setShowAdvancedFilters(!showAdvancedFilters)} className="btn--ghost" style={{ display: "flex", gap: 8, background: showAdvancedFilters ? "rgba(198, 255, 51, 0.15)" : "transparent" }}>
+            <FilterIcon /> Filtros
           </Button>
         </div>
+
+        {showAdvancedFilters && (
+          <div className="filterToolbar" style={{ padding: "16px", background: "rgba(198, 255, 51, 0.15)", border: "1px solid var(--border)", borderRadius: "12px", marginTop: "-8px", marginBottom: "24px" }}>
+            <select value={estadoFilter} onChange={(e) => setEstadoFilter(e.target.value)} className="select" style={{ backgroundColor: "var(--surface)", flex: 1 }}>
+              <option value="">Estado (todos)</option>
+              <option value="activo">Activo</option>
+              <option value="pausado">Pausado</option>
+              <option value="desactivado">Desactivado</option>
+            </select>
+            <div className="dateRange" style={{ flex: 1 }}>
+              <span className="hint" style={{ fontSize: "0.85rem", fontWeight: 500 }}>Precio:</span>
+              <input type="number" placeholder="Min" value={precioMin} onChange={(e) => setPrecioMin(e.target.value)} className="input" />
+              <span className="hint">—</span>
+              <input type="number" placeholder="Max" value={precioMax} onChange={(e) => setPrecioMax(e.target.value)} className="input" />
+            </div>
+            <Button className="btn--ghost" onClick={() => { setFilter(""); setEstadoFilter(""); setPrecioMin(""); setPrecioMax(""); }} style={{ flex: "0 0 auto", backgroundColor: "var(--surface)", color: "var(--text-muted)", fontSize: "0.85rem", border: "1px solid var(--border)" }}>
+              Borrar filtros
+            </Button>
+          </div>
+        )}
       </div>
 
       {error ? <div className="error">{error}</div> : null}
