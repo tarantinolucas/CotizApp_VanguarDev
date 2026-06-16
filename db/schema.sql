@@ -103,6 +103,25 @@ CREATE TABLE IF NOT EXISTS empresa_catalog_options (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS dashboard_user_notes (
+  id BIGSERIAL PRIMARY KEY,
+  id_usuario BIGINT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  text TEXT NOT NULL,
+  completed BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS cliente_contactos (
+  id BIGSERIAL PRIMARY KEY,
+  id_empresa BIGINT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+  id_cliente BIGINT NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
+  id_usuario BIGINT NOT NULL REFERENCES usuarios(id),
+  fecha_carga TIMESTAMPTZ NOT NULL DEFAULT now(),
+  fecha_contacto TIMESTAMPTZ NOT NULL,
+  observacion TEXT
+);
+
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS id_empresa BIGINT REFERENCES empresas(id);
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS activo BOOLEAN NOT NULL DEFAULT TRUE;
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER NOT NULL DEFAULT 0;
@@ -152,6 +171,14 @@ ALTER TABLE configuraciones ADD COLUMN IF NOT EXISTS id_empresa BIGINT REFERENCE
 ALTER TABLE empresa_catalog_options ADD COLUMN IF NOT EXISTS activo BOOLEAN NOT NULL DEFAULT TRUE;
 ALTER TABLE empresa_catalog_options ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();
 ALTER TABLE empresa_catalog_options ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+
+ALTER TABLE dashboard_user_notes ADD COLUMN IF NOT EXISTS completed BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE dashboard_user_notes ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();
+ALTER TABLE dashboard_user_notes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+
+ALTER TABLE cliente_contactos ADD COLUMN IF NOT EXISTS id_empresa BIGINT REFERENCES empresas(id) ON DELETE CASCADE;
+ALTER TABLE cliente_contactos ADD COLUMN IF NOT EXISTS fecha_carga TIMESTAMPTZ NOT NULL DEFAULT now();
+ALTER TABLE cliente_contactos ADD COLUMN IF NOT EXISTS observacion TEXT;
 
 DO $$
 DECLARE
@@ -267,5 +294,8 @@ CREATE INDEX IF NOT EXISTS idx_cotizaciones_id_usuario ON cotizaciones(id_usuari
 CREATE INDEX IF NOT EXISTS idx_items_cotizacion_id_cotizacion ON items_cotizacion(id_cotizacion);
 CREATE INDEX IF NOT EXISTS idx_items_cotizacion_id_producto ON items_cotizacion(id_producto);
 CREATE INDEX IF NOT EXISTS idx_seguimiento_id_cotizacion ON seguimiento(id_cotizacion);
+CREATE INDEX IF NOT EXISTS idx_dashboard_user_notes_id_usuario ON dashboard_user_notes(id_usuario, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cliente_contactos_id_cliente_fecha_contacto ON cliente_contactos(id_cliente, fecha_contacto DESC);
+CREATE INDEX IF NOT EXISTS idx_cliente_contactos_id_empresa_fecha_contacto ON cliente_contactos(id_empresa, fecha_contacto DESC);
 
 COMMIT;

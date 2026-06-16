@@ -60,6 +60,26 @@ export interface Client {
   ult_contacto?: string | null;
 }
 
+export interface ClientContact {
+  id: number;
+  id_empresa: number;
+  id_cliente: number;
+  id_usuario: number;
+  fecha_carga: string;
+  fecha_contacto: string;
+  observacion?: string | null;
+  usuario_nombre: string;
+}
+
+export interface DashboardNote {
+  id: number;
+  id_usuario: number;
+  text: string;
+  completed: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Product {
   id: number;
   nombre: string;
