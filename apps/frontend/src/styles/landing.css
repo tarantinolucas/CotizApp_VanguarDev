@@ -1,3 +1,8 @@
+html:has(.landingContainer),
+body:has(.landingContainer) {
+  overflow: auto !important;
+}
+
 .landingContainer {
   min-height: 100vh;
   color: #000;
