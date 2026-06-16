@@ -3,6 +3,17 @@ BEGIN;
 CREATE TABLE IF NOT EXISTS empresas (
   id BIGSERIAL PRIMARY KEY,
   nombre TEXT NOT NULL UNIQUE,
+  logo_url TEXT,
+  cuit TEXT,
+  razon_social TEXT,
+  direccion TEXT,
+  provincia TEXT,
+  codigo_postal TEXT,
+  pais TEXT,
+  telefono_contacto TEXT,
+  email TEXT,
+  website_url TEXT,
+  footer_text TEXT,
   activo BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -172,6 +183,18 @@ ALTER TABLE empresa_catalog_options ADD COLUMN IF NOT EXISTS activo BOOLEAN NOT 
 ALTER TABLE empresa_catalog_options ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();
 ALTER TABLE empresa_catalog_options ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
 
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS logo_url TEXT;
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS cuit TEXT;
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS razon_social TEXT;
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS direccion TEXT;
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS provincia TEXT;
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS codigo_postal TEXT;
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS pais TEXT;
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS telefono_contacto TEXT;
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS website_url TEXT;
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS footer_text TEXT;
+
 ALTER TABLE dashboard_user_notes ADD COLUMN IF NOT EXISTS completed BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE dashboard_user_notes ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();
 ALTER TABLE dashboard_user_notes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
@@ -297,5 +320,6 @@ CREATE INDEX IF NOT EXISTS idx_seguimiento_id_cotizacion ON seguimiento(id_cotiz
 CREATE INDEX IF NOT EXISTS idx_dashboard_user_notes_id_usuario ON dashboard_user_notes(id_usuario, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_cliente_contactos_id_cliente_fecha_contacto ON cliente_contactos(id_cliente, fecha_contacto DESC);
 CREATE INDEX IF NOT EXISTS idx_cliente_contactos_id_empresa_fecha_contacto ON cliente_contactos(id_empresa, fecha_contacto DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_empresas_cuit_unique ON empresas(cuit) WHERE cuit IS NOT NULL;
 
 COMMIT;

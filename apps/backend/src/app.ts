@@ -1,4 +1,5 @@
 import express from "express";
+import path from "node:path";
 import { pool } from "./config/database.js";
 import { login } from "./controllers/auth.controller.js";
 import { authMiddleware } from "./middlewares/auth.middleware.js";
@@ -42,6 +43,7 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json());
+app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true });

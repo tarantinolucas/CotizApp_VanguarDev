@@ -15,6 +15,17 @@ export interface User {
 export interface Company {
   id: number;
   nombre: string;
+  logo_url?: string | null;
+  cuit?: string | null;
+  razon_social?: string | null;
+  direccion?: string | null;
+  provincia?: string | null;
+  codigo_postal?: string | null;
+  pais?: string | null;
+  telefono_contacto?: string | null;
+  email?: string | null;
+  website_url?: string | null;
+  footer_text?: string | null;
   activo: boolean;
   created_at?: string;
   updated_at?: string;
