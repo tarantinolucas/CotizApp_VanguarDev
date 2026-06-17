@@ -32,3 +32,17 @@ export function getLocalTodayIsoDate() {
   const now = new Date();
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
+
+export function dateInputValueToUtcStartIso(value: string | null | undefined) {
+  if (!value) return null;
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  return `${match[1]}-${match[2]}-${match[3]}T00:00:00.000Z`;
+}
+
+export function dateInputValueToUtcEndIso(value: string | null | undefined) {
+  if (!value) return null;
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  return `${match[1]}-${match[2]}-${match[3]}T23:59:59.999Z`;
+}

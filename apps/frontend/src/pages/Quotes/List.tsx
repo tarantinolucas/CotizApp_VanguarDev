@@ -1,11 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { ActionMenu } from "../../components/common/ActionMenu";
 import { Button } from "../../components/common/Button";
 import { useToast } from "../../context/ToastContext";
 import * as quoteService from "../../services/quote.service";
-import { extractIsoDate, formatIsoDate, getLocalTodayIsoDate } from "../../utils/date";
+import {
+  dateInputValueToUtcEndIso,
+  dateInputValueToUtcStartIso,
+  extractIsoDate,
+  formatIsoDate,
+  getLocalTodayIsoDate
+} from "../../utils/date";
 import { getErrorMessage } from "../../utils/feedback";
 import "../../styles/quotes.css";
 
@@ -25,6 +31,9 @@ export default function QuotesList() {
   const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const fromDateInputRef = useRef<HTMLInputElement | null>(null);
+  const toDateInputRef = useRef<HTMLInputElement | null>(null);
 
   const [quotes, setQuotes] = useState<quoteService.QuoteListItem[]>([]);
   const [tab, setTab] = useState<"todos" | "ultimas" | "reactivar">("todos");
@@ -51,20 +60,20 @@ export default function QuotesList() {
   const [newNote, setNewNote] = useState("");
   const [noteSaving, setNoteSaving] = useState(false);
 
-  function toIsoStartOfDay(dateStr: string) {
-    if (!dateStr) return null;
-    const [y, m, d] = dateStr.split("-").map((x) => Number(x));
-    if (!y || !m || !d) return null;
-    const dt = new Date(y, m - 1, d, 0, 0, 0, 0);
-    return Number.isFinite(dt.getTime()) ? dt.toISOString() : null;
+  function formatDateInputDisplay(value: string) {
+    if (!value) return "";
+    return formatIsoDate(value, "");
   }
 
-  function toIsoEndOfDay(dateStr: string) {
-    if (!dateStr) return null;
-    const [y, m, d] = dateStr.split("-").map((x) => Number(x));
-    if (!y || !m || !d) return null;
-    const dt = new Date(y, m - 1, d, 23, 59, 59, 999);
-    return Number.isFinite(dt.getTime()) ? dt.toISOString() : null;
+  function openDatePicker(ref: React.RefObject<HTMLInputElement | null>) {
+    const input = ref.current;
+    if (!input) return;
+    const anyInput = input as any;
+    if (typeof anyInput.showPicker === "function") {
+      anyInput.showPicker();
+      return;
+    }
+    input.focus();
   }
 
   async function reloadQuotes() {
@@ -95,8 +104,8 @@ export default function QuotesList() {
               d.setDate(d.getDate() - 30);
               return d.toISOString();
             })()
-          : toIsoStartOfDay(fromDate) ?? undefined;
-      const to = tab === "ultimas" ? undefined : toIsoEndOfDay(toDate) ?? undefined;
+          : dateInputValueToUtcStartIso(fromDate) ?? undefined;
+      const to = tab === "ultimas" ? undefined : dateInputValueToUtcEndIso(toDate) ?? undefined;
 
       const data = await quoteService.listQuotes({
         q: q.trim() || undefined,
@@ -104,8 +113,8 @@ export default function QuotesList() {
         tipo_cliente: tipoClienteFilter || undefined,
         from,
         to,
-        venc_from: toIsoStartOfDay(vencFromDate) ?? undefined,
-        venc_to: toIsoEndOfDay(vencToDate) ?? undefined,
+        venc_from: dateInputValueToUtcStartIso(vencFromDate) ?? undefined,
+        venc_to: dateInputValueToUtcEndIso(vencToDate) ?? undefined,
         order_by: orderBy,
         order_dir: orderDir
       });
@@ -289,9 +298,47 @@ export default function QuotesList() {
           <div className="filterToolbar" style={{ marginBottom: showAdvancedFilters ? 16 : 24 }}>
             <input placeholder="Buscar cliente o ID..." value={q} onChange={(e) => setQ(e.target.value)} className="searchBarInput" />
             <div className="dateRange" style={{ flex: "0 1 auto" }}>
-              <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="input" style={{ width: "130px" }} />
+              <div
+                className="dateInputWrap"
+                style={{ width: "130px" }}
+                onMouseDownCapture={(e) => {
+                  e.preventDefault();
+                  openDatePicker(fromDateInputRef);
+                }}
+              >
+                <input
+                  type="date"
+                  ref={fromDateInputRef}
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  className="input dateInputNative"
+                  aria-label="Desde"
+                />
+                <div className={["dateInputOverlay", fromDate ? "" : "dateInputOverlay--placeholder"].filter(Boolean).join(" ")}>
+                  {fromDate ? formatDateInputDisplay(fromDate) : ""}
+                </div>
+              </div>
               <span className="hint">—</span>
-              <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="input" style={{ width: "130px" }} />
+              <div
+                className="dateInputWrap"
+                style={{ width: "130px" }}
+                onMouseDownCapture={(e) => {
+                  e.preventDefault();
+                  openDatePicker(toDateInputRef);
+                }}
+              >
+                <input
+                  type="date"
+                  ref={toDateInputRef}
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                  className="input dateInputNative"
+                  aria-label="Hasta"
+                />
+                <div className={["dateInputOverlay", toDate ? "" : "dateInputOverlay--placeholder"].filter(Boolean).join(" ")}>
+                  {toDate ? formatDateInputDisplay(toDate) : ""}
+                </div>
+              </div>
             </div>
             <Button onClick={() => setShowAdvancedFilters(!showAdvancedFilters)} className="btn--ghost" style={{ display: "flex", gap: 8 }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 4H20L14 12V19L10 21V12L4 4Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg> Filtros

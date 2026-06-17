@@ -370,3 +370,56 @@
   height: 1px;
   background: var(--border);
 }
+
+.dateInputWrap {
+  position: relative;
+  display: inline-block;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.dateInputNative {
+  width: 100%;
+  color: transparent;
+  caret-color: transparent;
+  outline: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.dateInputNative::-webkit-datetime-edit {
+  color: transparent;
+}
+
+.dateInputNative::-webkit-datetime-edit-fields-wrapper {
+  color: transparent;
+}
+
+.dateInputNative::-webkit-datetime-edit-text {
+  color: transparent;
+}
+
+.dateInputNative::-webkit-datetime-edit-month-field,
+.dateInputNative::-webkit-datetime-edit-day-field,
+.dateInputNative::-webkit-datetime-edit-year-field {
+  color: transparent;
+}
+
+.dateInputNative::-webkit-clear-button {
+  display: none;
+}
+
+.dateInputOverlay {
+  position: absolute;
+  top: 50%;
+  left: 16px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--text-primary);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.dateInputOverlay--placeholder {
+  color: var(--text-muted);
+}
