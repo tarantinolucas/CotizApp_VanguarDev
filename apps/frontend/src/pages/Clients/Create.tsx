@@ -6,6 +6,7 @@ import * as configService from "../../services/config.service";
 import { useToast } from "../../context/ToastContext";
 import type { Client } from "../../types";
 import { getErrorMessage } from "../../utils/feedback";
+import { validarCUIT } from "../../utils/cuit";
 import "../../styles/clients.css";
 
 type ClientDraft = Omit<Client, "id">;
@@ -47,6 +48,7 @@ export function ClientCreate() {
   const [clientTypeOptions, setClientTypeOptions] = useState<string[]>(fallbackClientTypeOptions);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cuitError, setCuitError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { showToast } = useToast();
 
@@ -66,6 +68,15 @@ export function ClientCreate() {
     }
 
     return null;
+  }
+
+  function handleCuitBlur() {
+    const raw = draft.cuit_tax_id?.trim();
+    if (!raw) {
+      setCuitError(null);
+      return;
+    }
+    setCuitError(validarCUIT(raw) ? null : "El CUIT / CUIL ingresado no es válido");
   }
 
   useEffect(() => {
@@ -180,7 +191,7 @@ export function ClientCreate() {
         
         <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(3, 1fr)' }}>
           <label className="field">
-            <span className="label">Nombre / Razón Social</span>
+            <span className="label">Nombre / Razón Social<span className="required">*</span></span>
             <input
               value={draft.nombre_empresa}
               onChange={(e) => setDraft((d) => ({ ...d, nombre_empresa: e.target.value }))}
@@ -188,12 +199,17 @@ export function ClientCreate() {
             />
           </label>
           <label className="field">
-            <span className="label">CUIT / CUIL</span>
+            <span className="label">CUIT / CUIL<span className="required">*</span></span>
             <input
               value={draft.cuit_tax_id ?? ""}
-              onChange={(e) => setDraft((d) => ({ ...d, cuit_tax_id: e.target.value }))}
+              onChange={(e) => {
+                setDraft((d) => ({ ...d, cuit_tax_id: e.target.value }));
+                if (cuitError) setCuitError(null);
+              }}
+              onBlur={handleCuitBlur}
               className="input"
             />
+            {cuitError ? <span className="fieldError">{cuitError}</span> : null}
           </label>
           <label className="field">
             <span className="label">Tipo</span>

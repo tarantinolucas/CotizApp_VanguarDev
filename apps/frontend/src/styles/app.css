@@ -176,6 +176,16 @@ a {
   font-size: 13px;
 }
 
+.label .required {
+  color: #dc2626;
+  margin-left: 2px;
+}
+
+.fieldError {
+  color: #dc2626;
+  font-size: 12px;
+}
+
 .error {
   color: #b91c1c;
   font-size: 13px;
