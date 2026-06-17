@@ -3,6 +3,7 @@ import {
   createDashboardNote,
   deleteDashboardNote,
   getDashboardMetrics,
+  getSalesMetricsSnapshot,
   listDashboardNotes,
   listDashboardReactivations,
   updateDashboardNote
@@ -17,8 +18,16 @@ function startOfUtcMonth(date: Date) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
 }
 
+function startOfUtcYear(date: Date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+}
+
 function addUtcMonths(date: Date, amount: number) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + amount, 1));
+}
+
+function addUtcYears(date: Date, amount: number) {
+  return new Date(Date.UTC(date.getUTCFullYear() + amount, date.getUTCMonth(), date.getUTCDate()));
 }
 
 function addUtcDays(date: Date, amount: number) {
@@ -42,6 +51,26 @@ function toNullableString(value: unknown) {
   }
   const trimmed = value.trim();
   return trimmed.length ? trimmed : null;
+}
+
+function parseDateInputStart(value: unknown) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (!Number.isFinite(date.getTime())) return null;
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+  return date;
+}
+
+function parseDateInputEndExclusive(value: unknown) {
+  const start = parseDateInputStart(value);
+  if (!start) return null;
+  return addUtcDays(start, 1);
 }
 
 export async function getDashboardHandler(req: Request, res: Response) {
@@ -97,6 +126,58 @@ export async function getDashboardHandler(req: Request, res: Response) {
       clients_contacted_scope: "company",
       quotes_sent_source: "tracking",
       sales_won_source: "tracking"
+    }
+  });
+}
+
+export async function getSalesMetricsHandler(req: Request, res: Response) {
+  if (!req.user) {
+    res.status(401).json({ ok: false, error: "unauthorized" });
+    return;
+  }
+
+  const now = new Date();
+  const todayStart = startOfUtcDay(now);
+  const tomorrowStart = addUtcDays(todayStart, 1);
+  const last30Start = addUtcDays(todayStart, -29);
+  const yearStart = startOfUtcYear(now);
+  const nextYearStart = addUtcYears(yearStart, 1);
+
+  const fromCustom = parseDateInputStart(req.query?.from);
+  const toCustomExclusive = parseDateInputEndExclusive(req.query?.to);
+  const hasCustomDate = Boolean(fromCustom || toCustomExclusive);
+
+  const summaryStart = fromCustom ?? last30Start;
+  const summaryEndExclusive = toCustomExclusive ?? tomorrowStart;
+  const chartsStart = hasCustomDate ? summaryStart : yearStart;
+  const chartsEndExclusive = hasCustomDate ? summaryEndExclusive : nextYearStart;
+  const category = toNullableString(req.query?.categoria);
+  const clientType = toNullableString(req.query?.tipo_cliente);
+
+  const companyId = getScopedCompanyId(req);
+  const snapshot = await getSalesMetricsSnapshot({
+    companyId,
+    category,
+    clientType,
+    summaryStartIso: summaryStart.toISOString(),
+    summaryEndIsoExclusive: summaryEndExclusive.toISOString(),
+    chartsStartIso: chartsStart.toISOString(),
+    chartsEndIsoExclusive: chartsEndExclusive.toISOString()
+  });
+
+  res.json({
+    ok: true,
+    ...snapshot,
+    meta: {
+      applied_summary_from: summaryStart.toISOString(),
+      applied_summary_to_exclusive: summaryEndExclusive.toISOString(),
+      applied_charts_from: chartsStart.toISOString(),
+      applied_charts_to_exclusive: chartsEndExclusive.toISOString(),
+      used_custom_date_range: hasCustomDate,
+      defaults: {
+        summary: "last_30_days",
+        charts: "current_year"
+      }
     }
   });
 }

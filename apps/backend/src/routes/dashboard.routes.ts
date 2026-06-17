@@ -3,6 +3,7 @@ import {
   createDashboardNoteHandler,
   deleteDashboardNoteHandler,
   getDashboardHandler,
+  getSalesMetricsHandler,
   listDashboardNotesHandler,
   updateDashboardNoteHandler
 } from "../controllers/dashboard.controller.js";
@@ -10,6 +11,7 @@ import {
 export const dashboardRouter = Router();
 
 dashboardRouter.get("/", getDashboardHandler);
+dashboardRouter.get("/sales-metrics", getSalesMetricsHandler);
 dashboardRouter.get("/notes", listDashboardNotesHandler);
 dashboardRouter.post("/notes", createDashboardNoteHandler);
 dashboardRouter.patch("/notes/:id", updateDashboardNoteHandler);
